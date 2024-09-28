@@ -17,33 +17,7 @@ function connectWebSocket() {
     ws.send(JSON.stringify({ type: "join", roomId, clientId }));
   };
 
-  ws.onmessage = (message) => {
-    const data = JSON.parse(message.data);
-    console.log("Received message:", data);
-    switch (data.type) {
-      case "joined":
-        document.getElementById(
-          "room-id"
-        ).innerText = `Room ID: ${data.roomId}`;
-        isHost = data.isHost;
-        updateHostControls();
-        updateVotingStatus(data.status);
-        break;
-      case "results":
-        displayResults(data.results);
-        break;
-      case "status":
-        updateVotingStatus(data.status);
-        break;
-      case "voteConfirmation":
-        selectedVote = data.value;
-        updateVoteButtons();
-        break;
-      case "error":
-        alert(data.message);
-        break;
-    }
-  };
+  ws.onmessage = (message) => handleWebSocketMessage(JSON.parse(message.data));
 
   ws.onerror = (error) => {
     console.error("WebSocket error:", error);
@@ -59,6 +33,39 @@ function connectWebSocket() {
     updateVotingStatus("disconnected");
     setTimeout(connectWebSocket, 5000);
   };
+}
+
+function handleWebSocketMessage(data) {
+  console.log("Received message:", data);
+  switch (data.type) {
+    case "joined":
+      handleJoined(data);
+      break;
+    case "results":
+      displayResults(data.results);
+      break;
+    case "status":
+      updateVotingStatus(data.status);
+      break;
+    case "voteConfirmation":
+      handleVoteConfirmation(data);
+      break;
+    case "error":
+      alert(data.message);
+      break;
+  }
+}
+
+function handleJoined(data) {
+  document.getElementById("room-id").innerText = `Room ID: ${data.roomId}`;
+  isHost = data.isHost;
+  updateHostControls();
+  updateVotingStatus(data.status);
+}
+
+function handleVoteConfirmation(data) {
+  selectedVote = data.value;
+  updateVoteButtons();
 }
 
 function submitVote(vote) {
@@ -144,11 +151,7 @@ function updateVotingStatus(status) {
 
 function updateHostControls() {
   const hostControls = document.getElementById("host-controls");
-  if (isHost) {
-    hostControls.style.display = "block";
-  } else {
-    hostControls.style.display = "none";
-  }
+  hostControls.style.display = isHost ? "block" : "none";
 }
 
 document.getElementById("start-vote").addEventListener("click", () => {
