@@ -4,16 +4,68 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Voting Room Creator</title>
-    <link rel="stylesheet" href="styles.css" />
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.2.0/flowbite.min.css"
+      rel="stylesheet"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.2.0/flowbite.min.js"></script>
   </head>
-  <body>
-    <div class="container">
-      <h1>Create or Join a Voting Room</h1>
-      <button id="create-room" class="btn-primary">Create New Room</button>
-      <div class="form-group">
-        <label for="room-id">Or enter a Room ID to join:</label>
-        <input type="text" id="room-id" name="room-id" required />
-        <button id="join-room" class="btn-secondary">Join Room</button>
+  <body class="bg-gray-100 dark:bg-gray-900">
+    <div class="container mx-auto px-4 py-8">
+      <h1
+        class="text-3xl font-bold text-gray-900 dark:text-white mb-6 text-center"
+      >
+        Create or Join a Voting Room
+      </h1>
+
+      <div
+        class="max-w-md mx-auto bg-white rounded-lg border border-gray-200 shadow-md dark:bg-gray-800 dark:border-gray-700"
+      >
+        <div class="p-6 space-y-6">
+          <button
+            id="create-room"
+            class="w-full text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800"
+          >
+            Create New Room
+          </button>
+
+          <div class="relative">
+            <div class="absolute inset-0 flex items-center">
+              <div
+                class="w-full border-t border-gray-300 dark:border-gray-600"
+              ></div>
+            </div>
+            <div class="relative flex justify-center text-sm">
+              <span
+                class="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400"
+                >Or</span
+              >
+            </div>
+          </div>
+
+          <div class="space-y-4">
+            <label
+              for="room-id"
+              class="block mb-2 text-sm font-medium text-gray-900 dark:text-white"
+              >Enter a Room ID to join:</label
+            >
+            <div class="flex">
+              <input
+                type="text"
+                id="room-id"
+                class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-l-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                placeholder="Room ID"
+                required
+              />
+              <button
+                id="join-room"
+                class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-r-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
+              >
+                Join Room
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
     <script src="index.js"></script>
