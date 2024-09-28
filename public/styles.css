@@ -1,0 +1,159 @@
+body {
+  font-family: Arial, sans-serif;
+  line-height: 1.6;
+  color: #333;
+  background-color: #f4f4f4;
+  margin: 0;
+  padding: 0;
+}
+
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+  background-color: #fff;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  border-radius: 5px;
+}
+
+h1 {
+  color: #2c3e50;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+input[type="number"] {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+button {
+  background-color: #4caf50;
+  border: none;
+  color: white;
+  padding: 10px 20px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  margin: 4px 2px;
+  cursor: pointer;
+}
+
+#vote-buttons {
+  margin-top: 20px;
+}
+
+#vote-buttons button {
+  margin-right: 10px;
+}
+
+#vote-result {
+  margin-top: 30px;
+  text-align: center;
+}
+
+.status,
+.connection-status {
+  margin-top: 20px;
+  padding: 10px;
+  border-radius: 4px;
+  text-align: center;
+  font-weight: bold;
+}
+
+.status.success {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.status.error {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.connection-status.connected {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.connection-status.disconnected {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.timer {
+  font-size: 24px;
+  font-weight: bold;
+  text-align: center;
+  margin-top: 20px;
+}
+
+.result-chart {
+  width: 100%;
+  margin-top: 20px;
+}
+
+.result-bar {
+  background-color: #3498db;
+  color: white;
+  padding: 5px;
+  margin-bottom: 5px;
+  border-radius: 3px;
+  transition: width 0.5s ease-in-out;
+}
+
+.result-bar span {
+  display: inline-block;
+  padding: 0 5px;
+}
+
+.btn-secondary {
+  background-color: #e74c3c;
+}
+
+.btn-secondary:hover {
+  background-color: #c0392b;
+}
+
+.voting-status {
+  text-align: center;
+  font-weight: bold;
+  margin: 10px 0;
+  padding: 10px;
+  background-color: #f1c40f;
+  color: #34495e;
+  border-radius: 4px;
+}
+
+.live-results {
+  margin-top: 20px;
+}
+
+/* Add this at the end of the file */
+.admin-link {
+  margin-top: 20px;
+  text-align: center;
+}
+
+.admin-link a {
+  color: #3498db;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+.admin-link a:hover {
+  text-decoration: underline;
+}

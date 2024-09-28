@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Voting Management</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>Admin Voting Management</h1>
+      <form id="vote-settings">
+        <div class="form-group">
+          <label for="max-users">Number of Users:</label>
+          <input
+            type="number"
+            id="max-users"
+            name="max-users"
+            min="1"
+            value="200"
+            required
+          />
+        </div>
+        <div class="form-group">
+          <label for="duration">Voting Duration (seconds):</label>
+          <input
+            type="number"
+            id="duration"
+            name="duration"
+            min="1"
+            value="30"
+            required
+          />
+        </div>
+        <button type="button" onclick="startVoting()" class="btn-primary">
+          Start Voting
+        </button>
+        <button type="button" onclick="endVoting()" class="btn-secondary">
+          End Voting
+        </button>
+      </form>
+      <div id="status" class="status"></div>
+      <div id="timer" class="timer"></div>
+      <div id="live-results" class="live-results"></div>
+    </div>
+    <script src="admin.js"></script>
+  </body>
+</html>
