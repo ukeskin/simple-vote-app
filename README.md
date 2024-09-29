@@ -2,6 +2,14 @@
 
 A real-time voting application built with Node.js and WebSockets.
 
+## Screenshots
+
+![Screenshot 1](./screenshots/ss1.png)
+_Caption: create or enter voting screen_
+
+![Screenshot 2](./screenshots/ss2.png)
+_Caption: voting screen_
+
 ## Features
 
 - Create voting rooms

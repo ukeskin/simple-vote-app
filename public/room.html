@@ -4,88 +4,65 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Voting Room</title>
-    <link
-      href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.2.0/flowbite.min.css"
-      rel="stylesheet"
-    />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.2.0/flowbite.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
   </head>
   <body class="bg-gray-100 dark:bg-gray-900">
     <div class="container mx-auto px-4 py-8">
-      <h1
-        class="text-3xl font-bold text-gray-900 dark:text-white mb-6 text-center"
-      >
+      <h1 class="text-3xl font-bold mb-4 text-gray-900 dark:text-white">
         Voting Room
       </h1>
-
-      <div
-        id="room-id"
-        class="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-4 text-center"
-      ></div>
-
-      <!-- Share Link Feature -->
-      <div class="flex justify-center mb-4">
+      <p id="room-id" class="mb-4 text-gray-700 dark:text-gray-300"></p>
+      <p id="connection-status" class="mb-4"></p>
+      <p id="voting-status" class="mb-4"></p>
+      <div id="host-controls" style="display: none">
+        <!-- Host controls will be dynamically added here -->
+      </div>
+      <div id="admin-settings" style="display: none">
+        <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-white">
+          Admin Settings
+        </h2>
+        <div class="mb-4">
+          <label
+            for="duration"
+            class="block mb-2 text-sm font-medium text-gray-900 dark:text-white"
+            >Voting Duration (seconds):</label
+          >
+          <input
+            type="number"
+            id="duration"
+            class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+            value="30"
+          />
+        </div>
+        <button
+          id="start-vote"
+          class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 mr-2 mb-2 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800"
+        >
+          Start Voting
+        </button>
+        <button
+          id="end-vote"
+          class="text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:ring-red-300 font-medium rounded-lg text-sm px-5 py-2.5 mr-2 mb-2 dark:bg-red-600 dark:hover:bg-red-700 focus:outline-none dark:focus:ring-red-800"
+        >
+          End Voting
+        </button>
         <button
           id="share-link"
-          class="text-white bg-green-700 hover:bg-green-800 focus:ring-4 focus:ring-green-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-green-600 dark:hover:bg-green-700 focus:outline-none dark:focus:ring-green-800"
+          class="text-white bg-green-700 hover:bg-green-800 focus:ring-4 focus:ring-green-300 font-medium rounded-lg text-sm px-5 py-2.5 mr-2 mb-2 dark:bg-green-600 dark:hover:bg-green-700 focus:outline-none dark:focus:ring-green-800"
         >
           Share Room Link
         </button>
+        <p
+          id="share-message"
+          class="mt-2 text-sm text-gray-600 dark:text-gray-400"
+        ></p>
       </div>
       <div
-        id="share-message"
-        class="text-center text-sm text-gray-600 dark:text-gray-400 mb-4"
+        id="vote-buttons"
+        class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4"
       ></div>
-
-      <div
-        id="voting-status"
-        class="p-4 mb-4 text-sm text-blue-800 rounded-lg bg-blue-50 dark:bg-gray-800 dark:text-blue-400 text-center"
-        role="alert"
-      ></div>
-
-      <div id="host-controls" class="mb-6">
-        <div class="flex items-center space-x-4 justify-center">
-          <div class="flex flex-col items-center">
-            <label
-              for="duration"
-              class="text-gray-700 dark:text-gray-300 text-sm"
-              >Voting Duration (seconds)</label
-            >
-            <input
-              type="number"
-              id="duration"
-              name="duration"
-              min="1"
-              value="30"
-              required
-              class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-            />
-          </div>
-          <button
-            id="start-vote"
-            class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800"
-          >
-            Start Voting
-          </button>
-          <button
-            id="end-vote"
-            class="text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:ring-red-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-red-600 dark:hover:bg-red-700 focus:outline-none dark:focus:ring-red-800"
-          >
-            End Voting
-          </button>
-        </div>
-      </div>
-
-      <div id="vote-buttons" class="grid grid-cols-5 gap-4 mb-6"></div>
-
-      <div id="vote-result" class="mb-6"></div>
-
-      <div
-        id="connection-status"
-        class="text-center text-sm font-medium text-gray-700 dark:text-gray-300"
-      ></div>
+      <div id="vote-result" class="mb-4"></div>
     </div>
-
     <script src="/room.js"></script>
   </body>
 </html>

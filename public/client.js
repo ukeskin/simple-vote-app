@@ -153,3 +153,71 @@ function updateTimer(timeLeft) {
 
 createVoteButtons();
 startVote();
+
+// Generate a unique client ID using Web Crypto API
+async function generateClientId() {
+  const array = new Uint32Array(4);
+  crypto.getRandomValues(array);
+  return Array.from(array, (dec) => ("0" + dec.toString(16)).substr(-2)).join(
+    ""
+  );
+}
+
+// Function to get or create a client ID
+async function getClientId() {
+  let clientId = localStorage.getItem("clientId");
+  if (!clientId) {
+    clientId = await generateClientId();
+    localStorage.setItem("clientId", clientId);
+  }
+  return clientId;
+}
+
+// Modify the createRoom function
+async function createRoom() {
+  const clientId = await getOrCreateClientId();
+  console.log("Client ID:", clientId);
+  try {
+    const response = await fetch("/create-room", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ clientId }),
+    });
+    const data = await response.json();
+    if (data.token) {
+      localStorage.setItem("authToken", data.token);
+    }
+    if (data.roomId) {
+      window.location.href = `/room/${data.roomId}`;
+    } else {
+      throw new Error("Room ID not received");
+    }
+  } catch (error) {
+    console.error("Error creating room:", error);
+    alert("Failed to create room. Please try again.");
+  }
+}
+
+async function getOrCreateClientId() {
+  let clientId = localStorage.getItem("clientId");
+  if (!clientId) {
+    clientId = await generateClientId();
+    localStorage.setItem("clientId", clientId);
+  }
+  return clientId;
+}
+
+async function generateClientId() {
+  const array = new Uint32Array(4);
+  crypto.getRandomValues(array);
+  return Array.from(array, (dec) => ("0" + dec.toString(16)).substr(-2)).join(
+    ""
+  );
+}
+
+// Call this function when the "Create Room" button is clicked
+document
+  .getElementById("create-room-button")
+  .addEventListener("click", createRoom);

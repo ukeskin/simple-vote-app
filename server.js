@@ -2,8 +2,12 @@ const express = require("express");
 const http = require("http");
 const WebSocket = require("ws");
 const path = require("path");
-const sqlite3 = require("sqlite3").verbose();
 const { v4: uuidv4 } = require("uuid");
+const db = require("./db");
+const roomService = require("./services/roomService");
+const voteService = require("./services/voteService");
+const jwt = require("jsonwebtoken");
+const SECRET_KEY = process.env.JWT_SECRET || "your-secret-key";
 
 const app = express();
 const server = http.createServer(app);
@@ -12,67 +16,18 @@ const wss = new WebSocket.Server({ server });
 app.use(express.static("public"));
 app.use(express.json());
 
-// Database setup
-const db = new sqlite3.Database("voting.db");
-db.serialize(() => {
-  db.run(`CREATE TABLE IF NOT EXISTS rooms (
-    id TEXT PRIMARY KEY,
-    host_id TEXT,
-    voting_active INTEGER DEFAULT 0,
-    voting_duration INTEGER DEFAULT 0,
-    voting_end_time INTEGER DEFAULT 0
-  )`);
-  db.run(`CREATE TABLE IF NOT EXISTS votes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    room_id TEXT,
-    client_id TEXT,
-    vote INTEGER,
-    FOREIGN KEY (room_id) REFERENCES rooms (id)
-  )`);
-});
+// Middleware to verify JWT token
+const verifyToken = (req, res, next) => {
+  const token = req.headers["authorization"];
+  if (!token) return res.status(403).json({ error: "No token provided" });
 
-// Helper functions
-const dbQuery = (query, params = [], method = "run") => {
-  return new Promise((resolve, reject) => {
-    db[method](query, params, function (err, result) {
-      if (err) reject(err);
-      else resolve(method === "run" ? this : result);
-    });
+  jwt.verify(token, SECRET_KEY, (err, decoded) => {
+    if (err)
+      return res.status(500).json({ error: "Failed to authenticate token" });
+    req.clientId = decoded.clientId;
+    next();
   });
 };
-
-// Room functions
-const createRoom = async (hostId) => {
-  const roomId = uuidv4();
-  console.log("Creating room with ID:", roomId, "and hostId:", hostId);
-  const result = await dbQuery(
-    "INSERT INTO rooms (id, host_id) VALUES (?, ?)",
-    [roomId, hostId]
-  );
-  console.log("Room creation result:", result);
-  return { ...result, lastID: roomId };
-};
-const getRoomData = (roomId) =>
-  dbQuery("SELECT * FROM rooms WHERE id = ?", [roomId], "get");
-const updateRoomVotingStatus = (roomId, active, duration, endTime) =>
-  dbQuery(
-    "UPDATE rooms SET voting_active = ?, voting_duration = ?, voting_end_time = ? WHERE id = ?",
-    [active ? 1 : 0, duration, endTime, roomId]
-  );
-
-// Vote functions
-const addVote = (roomId, clientId, vote) =>
-  dbQuery("INSERT INTO votes (room_id, client_id, vote) VALUES (?, ?, ?)", [
-    roomId,
-    clientId,
-    vote,
-  ]);
-const getVotes = (roomId) =>
-  dbQuery(
-    "SELECT vote, client_id FROM votes WHERE room_id = ?",
-    [roomId],
-    "all"
-  );
 
 // Routes
 app.get("/", (req, res) =>
@@ -81,13 +36,13 @@ app.get("/", (req, res) =>
 
 app.post("/create-room", async (req, res) => {
   try {
-    const clientId = uuidv4();
-    console.log("Creating room with clientId:", clientId);
-    const result = await createRoom(clientId);
-    console.log("Room created:", result);
-    const roomId = result.lastID;
-    console.log("Sending response:", { roomId, clientId });
-    res.json({ roomId, clientId });
+    const { clientId } = req.body;
+    if (!clientId) {
+      return res.status(400).json({ error: "Client ID is required" });
+    }
+    const roomId = await roomService.createRoom(clientId);
+    const token = jwt.sign({ clientId }, SECRET_KEY, { expiresIn: "1h" });
+    res.json({ roomId, token });
   } catch (error) {
     console.error("Error creating room:", error);
     res.status(500).json({ error: "Failed to create room" });
@@ -96,7 +51,7 @@ app.post("/create-room", async (req, res) => {
 
 app.get("/room/:roomId", async (req, res) => {
   try {
-    const room = await getRoomData(req.params.roomId);
+    const room = await roomService.getRoomData(req.params.roomId);
     if (room) {
       res.sendFile(path.join(__dirname, "public", "room.html"));
     } else {
@@ -108,44 +63,86 @@ app.get("/room/:roomId", async (req, res) => {
   }
 });
 
+// Modify the route to check if a user is the host
+app.get("/api/is-host/:roomId/:clientId", async (req, res) => {
+  try {
+    const isHost = await roomService.isRoomHost(
+      req.params.roomId,
+      req.params.clientId
+    );
+    res.json({ isHost });
+  } catch (error) {
+    console.error("Error checking host status:", error);
+    res.status(500).json({ error: "Failed to check host status" });
+  }
+});
+
 // WebSocket handling
-wss.on("connection", (ws) => {
+wss.on("connection", (ws, req) => {
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  const token = url.searchParams.get("token");
+
+  if (token) {
+    jwt.verify(token, SECRET_KEY, (err, decoded) => {
+      if (err) {
+        console.error("Invalid token:", err);
+        ws.close(1008, "Invalid token");
+        return;
+      }
+      ws.clientId = decoded.clientId;
+      setupWebSocketHandlers(ws);
+    });
+  } else {
+    // Allow connection without token, but don't set clientId
+    setupWebSocketHandlers(ws);
+  }
+});
+
+function setupWebSocketHandlers(ws) {
   ws.on("message", async (message) => {
     const data = JSON.parse(message);
 
     switch (data.type) {
       case "join":
-        handleJoin(ws, data);
+        await handleJoin(ws, data);
         break;
       case "vote":
-        handleVote(ws, data);
+        await handleVote(ws, data);
         break;
       case "start-vote":
-        handleStartVote(ws, data);
+        await handleStartVote(ws, data);
         break;
       case "end-vote":
-        handleEndVote(ws);
+        await handleEndVote(ws);
+        break;
+      case "update-options":
+        await handleUpdateOptions(ws, data);
+        break;
+      case "request-new-vote":
+        await handleRequestNewVote(ws);
         break;
     }
   });
-});
+}
 
 async function handleJoin(ws, data) {
   try {
-    const room = await getRoomData(data.roomId);
+    const room = await roomService.getRoomData(data.roomId);
     if (room) {
       ws.roomId = data.roomId;
       ws.clientId = data.clientId;
+      console.log(`Client joined: ${ws.clientId}`); // Add this line for debugging
       ws.send(
         JSON.stringify({
           type: "joined",
           roomId: data.roomId,
           isHost: room.host_id === data.clientId,
           status: room.voting_active ? "active" : "waiting",
+          options: room.options,
         })
       );
       if (room.voting_active) {
-        const votes = await getVotes(data.roomId);
+        const votes = await voteService.getVotes(data.roomId);
         ws.send(
           JSON.stringify({ type: "results", results: calculateResults(votes) })
         );
@@ -161,34 +158,20 @@ async function handleJoin(ws, data) {
 
 async function handleVote(ws, data) {
   try {
-    const room = await getRoomData(ws.roomId);
-    if (room && room.voting_active && Date.now() < room.voting_end_time) {
-      // Check if the user has already voted
-      const existingVote = await dbQuery(
-        "SELECT id FROM votes WHERE room_id = ? AND client_id = ?",
-        [ws.roomId, ws.clientId],
-        "get"
-      );
-
-      if (existingVote) {
-        // Update the existing vote
-        await dbQuery("UPDATE votes SET vote = ? WHERE id = ?", [
-          Math.round(data.value),
-          existingVote.id,
-        ]);
-      } else {
-        // Add a new vote
-        await addVote(ws.roomId, ws.clientId, Math.round(data.value));
+    const room = await roomService.getRoomData(ws.roomId);
+    if (room && room.voting_active && new Date() < room.voting_end_time) {
+      if (!ws.clientId) {
+        throw new Error("Client ID is not set");
       }
-
+      await voteService.addVote(ws.roomId, ws.clientId, data.value.toString());
       ws.send(
         JSON.stringify({
           type: "voteConfirmation",
-          value: Math.round(data.value),
+          value: data.value,
         })
       );
 
-      const votes = await getVotes(ws.roomId);
+      const votes = await voteService.getVotes(ws.roomId);
       broadcastToRoom(ws.roomId, {
         type: "results",
         results: calculateResults(votes),
@@ -206,7 +189,7 @@ async function handleVote(ws, data) {
     ws.send(
       JSON.stringify({
         type: "error",
-        message: "Error processing your vote",
+        message: error.message,
       })
     );
   }
@@ -214,11 +197,11 @@ async function handleVote(ws, data) {
 
 async function handleStartVote(ws, data) {
   try {
-    const room = await getRoomData(ws.roomId);
+    const room = await roomService.getRoomData(ws.roomId);
     if (room && room.host_id === ws.clientId && !room.voting_active) {
       const votingDuration = data.duration;
-      const votingEndTime = Date.now() + votingDuration;
-      await updateRoomVotingStatus(
+      const votingEndTime = new Date(Date.now() + votingDuration);
+      await roomService.updateRoomVotingStatus(
         ws.roomId,
         true,
         votingDuration,
@@ -238,7 +221,7 @@ async function handleStartVote(ws, data) {
 
 async function handleEndVote(ws) {
   try {
-    const room = await getRoomData(ws.roomId);
+    const room = await roomService.getRoomData(ws.roomId);
     if (room && room.host_id === ws.clientId && room.voting_active) {
       await endVoting(ws.roomId);
     }
@@ -249,9 +232,9 @@ async function handleEndVote(ws) {
 }
 
 async function endVoting(roomId) {
-  await updateRoomVotingStatus(roomId, false, 0, 0);
+  await roomService.updateRoomVotingStatus(roomId, false, 0, null);
   broadcastToRoom(roomId, { type: "status", status: "ended" });
-  const votes = await getVotes(roomId);
+  const votes = await voteService.getVotes(roomId);
   broadcastToRoom(roomId, {
     type: "results",
     results: calculateResults(votes),
@@ -268,7 +251,7 @@ function calculateResults(votes) {
 
   return Object.entries(voteCounts)
     .map(([rating, count]) => ({
-      rating: parseInt(rating),
+      rating: rating,
       count,
       percentage: totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0,
     }))
@@ -283,5 +266,53 @@ function broadcastToRoom(roomId, message) {
   });
 }
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
+async function handleUpdateOptions(ws, data) {
+  try {
+    const room = await roomService.getRoomData(data.roomId);
+    if (room && room.host_id === ws.clientId && !room.voting_active) {
+      await roomService.updateRoomOptions(data.roomId, data.options);
+      broadcastToRoom(data.roomId, {
+        type: "options-updated",
+        options: data.options,
+      });
+    } else {
+      ws.send(
+        JSON.stringify({
+          type: "error",
+          message: "Unauthorized or voting is active",
+        })
+      );
+    }
+  } catch (error) {
+    console.error("Error updating options:", error);
+    ws.send(
+      JSON.stringify({ type: "error", message: "Error updating options" })
+    );
+  }
+}
+
+async function handleRequestNewVote(ws) {
+  try {
+    const room = await roomService.getRoomData(ws.roomId);
+    if (room && room.host_id === ws.clientId && !room.voting_active) {
+      broadcastToRoom(ws.roomId, { type: "new-vote-requested" });
+    } else {
+      ws.send(
+        JSON.stringify({
+          type: "error",
+          message: "Unauthorized or voting is active",
+        })
+      );
+    }
+  } catch (error) {
+    console.error("Error requesting new vote:", error);
+    ws.send(
+      JSON.stringify({ type: "error", message: "Error requesting new vote" })
+    );
+  }
+}
+
+db.sequelize.sync().then(() => {
+  const PORT = process.env.PORT || 3000;
+  server.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
+});

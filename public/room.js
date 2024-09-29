@@ -5,11 +5,42 @@ let votingStatus = "waiting";
 let isHost = false;
 let clientId;
 let voteResult = null;
+let voteOptions = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
-function connectWebSocket() {
+async function getOrCreateClientId() {
+  let clientId = localStorage.getItem("clientId");
+  if (!clientId) {
+    clientId = await generateClientId();
+    localStorage.setItem("clientId", clientId);
+  }
+  return clientId;
+}
+
+async function generateClientId() {
+  const array = new Uint32Array(4);
+  crypto.getRandomValues(array);
+  return Array.from(array, (dec) => ("0" + dec.toString(16)).substr(-2)).join(
+    ""
+  );
+}
+
+async function connectWebSocket() {
   const roomId = window.location.pathname.split("/").pop();
-  clientId = localStorage.getItem("clientId");
-  ws = new WebSocket(`ws://${window.location.host}`);
+  clientId = await getOrCreateClientId();
+  const token = localStorage.getItem("authToken");
+
+  if (!clientId) {
+    console.error("Failed to generate Client ID");
+    alert("An error occurred. Please try refreshing the page.");
+    return;
+  }
+
+  // Include the token in the WebSocket URL if it exists
+  const wsUrl = token
+    ? `ws://${window.location.host}?token=${token}`
+    : `ws://${window.location.host}`;
+
+  ws = new WebSocket(wsUrl);
 
   ws.onopen = () => {
     console.log("Connected to the voting server.");
@@ -54,8 +85,11 @@ function handleWebSocketMessage(data) {
     case "error":
       alert(data.message);
       break;
-    case "voteResult":
-      handleVoteResult(data.result);
+    case "options-updated":
+      handleOptionsUpdated(data.options);
+      break;
+    case "new-vote-requested":
+      handleNewVoteRequested();
       break;
   }
 }
@@ -65,10 +99,12 @@ function handleJoined(data) {
   isHost = data.isHost;
   updateHostControls();
   updateVotingStatus(data.status);
+  voteOptions = data.options;
+  updateVoteButtons();
 }
 
 function handleVoteConfirmation(data) {
-  selectedVote = data.value;
+  selectedVote = data.value.toString();
   updateVoteButtons();
 }
 
@@ -77,9 +113,25 @@ function handleVoteResult(result) {
   displayVoteResult();
 }
 
+function handleOptionsUpdated(options) {
+  voteOptions = options;
+  updateVoteButtons();
+  if (isHost) {
+    document.getElementById("options-input").value = options.join(", ");
+  }
+}
+
+function handleNewVoteRequested() {
+  voteResult = null;
+  selectedVote = null;
+  updateVotingStatus("waiting");
+  updateVoteButtons();
+  document.getElementById("vote-result").innerHTML = "";
+}
+
 function submitVote(vote) {
   if (isConnected && votingStatus === "active") {
-    ws.send(JSON.stringify({ type: "vote", value: vote }));
+    ws.send(JSON.stringify({ type: "vote", value: vote.toString() }));
   } else {
     alert("Voting is not currently active.");
   }
@@ -108,30 +160,33 @@ function displayResults(results) {
 
 function createVoteButtons() {
   const buttonContainer = document.getElementById("vote-buttons");
-  for (let i = 1; i <= 10; i++) {
+  buttonContainer.innerHTML = ""; // Clear existing buttons
+  voteOptions.forEach((option) => {
     const button = document.createElement("button");
-    button.innerText = i;
-    button.onclick = () => submitVote(i);
+    button.innerText = option;
+    button.onclick = () => submitVote(option);
     button.disabled = true;
     button.className =
       "w-full text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800 disabled:opacity-50 disabled:cursor-not-allowed";
     buttonContainer.appendChild(button);
-  }
+  });
 }
 
 function updateVoteButtons() {
-  const buttons = document.getElementById("vote-buttons").children;
-  for (let button of buttons) {
+  const buttonContainer = document.getElementById("vote-buttons");
+  buttonContainer.innerHTML = ""; // Clear existing buttons
+  voteOptions.forEach((option) => {
+    const button = document.createElement("button");
+    button.innerText = option;
+    button.onclick = () => submitVote(option);
     button.disabled = votingStatus !== "active";
-    button.classList.toggle(
-      "bg-green-700",
-      parseInt(button.innerText) === selectedVote
-    );
-    button.classList.toggle(
-      "hover:bg-green-800",
-      parseInt(button.innerText) === selectedVote
-    );
-  }
+    button.className = `w-full text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800 disabled:opacity-50 disabled:cursor-not-allowed ${
+      option.toString() === selectedVote
+        ? "bg-green-700 hover:bg-green-800"
+        : ""
+    }`;
+    buttonContainer.appendChild(button);
+  });
 }
 
 function updateConnectionStatus() {
@@ -180,9 +235,67 @@ function updateVotingStatus(status) {
   updateVoteButtons();
 }
 
-function updateHostControls() {
+async function updateHostControls() {
   const hostControls = document.getElementById("host-controls");
-  hostControls.style.display = isHost ? "block" : "none";
+  const adminSettings = document.getElementById("admin-settings");
+  const roomId = window.location.pathname.split("/").pop();
+  const clientId = localStorage.getItem("clientId");
+
+  if (!clientId) {
+    console.error("Client ID not found");
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/is-host/${roomId}/${clientId}`);
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const { isHost } = await response.json();
+
+    hostControls.style.display = isHost ? "block" : "none";
+    adminSettings.style.display = isHost ? "block" : "none";
+
+    if (isHost) {
+      // Clear existing content
+      hostControls.innerHTML = "";
+
+      const optionsEditor = document.createElement("div");
+      optionsEditor.innerHTML = `
+        <label for="options-input" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Edit Voting Options (comma-separated):</label>
+        <input type="text" id="options-input" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" value="${voteOptions.join(
+          ", "
+        )}">
+        <button id="update-options" class="mt-2 text-white bg-green-700 hover:bg-green-800 focus:ring-4 focus:ring-green-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-green-600 dark:hover:bg-green-700 focus:outline-none dark:focus:ring-green-800">Update Options</button>
+      `;
+      hostControls.appendChild(optionsEditor);
+
+      document
+        .getElementById("update-options")
+        .addEventListener("click", () => {
+          const newOptions = document
+            .getElementById("options-input")
+            .value.split(",")
+            .map((option) => option.trim())
+            .filter((option) => option !== "");
+          if (newOptions.length > 0) {
+            ws.send(
+              JSON.stringify({
+                type: "update-options",
+                roomId: window.location.pathname.split("/").pop(),
+                options: newOptions,
+              })
+            );
+          } else {
+            alert("Please enter at least one option.");
+          }
+        });
+    }
+  } catch (error) {
+    console.error("Error checking host status:", error);
+  }
 }
 
 function displayVoteResult() {
@@ -262,5 +375,9 @@ document.getElementById("share-link").addEventListener("click", () => {
   }
 });
 
-createVoteButtons();
-connectWebSocket();
+// Call updateVoteButtons() when the page loads
+document.addEventListener("DOMContentLoaded", async () => {
+  await updateVoteButtons();
+  await updateHostControls();
+  await connectWebSocket();
+});
