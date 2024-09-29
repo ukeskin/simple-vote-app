@@ -23,6 +23,8 @@ _Caption: voting screen_
 - Express.js
 - WebSocket (ws)
 - SQLite3
+- JWT
+- Sequelize
 - UUID
 
 ## Getting Started

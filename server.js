@@ -2,7 +2,6 @@ const express = require("express");
 const http = require("http");
 const WebSocket = require("ws");
 const path = require("path");
-const { v4: uuidv4 } = require("uuid");
 const db = require("./db");
 const roomService = require("./services/roomService");
 const voteService = require("./services/voteService");
